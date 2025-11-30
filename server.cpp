@@ -16,9 +16,8 @@ std::mutex clients_mutex;
 void broadcast_message(const std::string &msg, int sender_socket) {
     std::lock_guard<std::mutex> lock(clients_mutex);
     for (auto &client : clients) {
-        int sock = client.first;
-        if (sock != sender_socket) {
-            send(sock, msg.c_str(), msg.size(), 0);
+        if (client.first != sender_socket) {
+            send(client.first, msg.c_str(), msg.size(), 0);
         }
     }
 }
@@ -40,15 +39,12 @@ void handle_client(int client_socket, std::string username) {
                 );
             }
             close(client_socket);
-
-            std::string leaveMsg = username + " left the chat!\n";
-            std::cout << leaveMsg;
+            std::string leaveMsg = "⬅️ " + username + " left the chat!\n";
             broadcast_message(leaveMsg, client_socket);
             return;
         }
 
         std::string msg = "[" + username + "]: " + buffer;
-        std::cout << msg;
         broadcast_message(msg, client_socket);
     }
 }
@@ -75,8 +71,6 @@ int main() {
         return 1;
     }
 
-    std::cout << "Server running on port " << PORT << "...\n";
-
     while (true) {
         sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
@@ -96,8 +90,7 @@ int main() {
             clients.push_back({client_socket, username});
         }
 
-        std::string joinMsg = username + " joined the chat!\n";
-        std::cout << joinMsg;
+        std::string joinMsg = "➡️ " + username + " joined the chat!\n";
         broadcast_message(joinMsg, client_socket);
 
         std::thread(handle_client, client_socket, username).detach();
