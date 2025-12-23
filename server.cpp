@@ -22,6 +22,48 @@ void broadcast_message(const std::string &msg, int sender_socket) {
     }
 }
 
+void pm(int sender_socket, const std::string& sender_name, const std::string& raw) {
+    std::stringstream ss(raw);
+    std::string cmd, target;
+    ss >> cmd >> target;
+
+    std::string message;
+    std::getline(ss, message);
+
+    if (!message.empty() && message[0] == ' ')
+        message.erase(0, 1);
+
+    if (target.empty() || message.empty()) {
+        std::string err = "[Error] Usage: /pm <username> <message>\n";
+        send(sender_socket, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    int target_socket = -1;
+
+    for (auto &c : clients) {
+        if (c.second == target) {
+            target_socket = c.first;
+            break;
+        }
+    }
+
+    if (target_socket == -1) {
+        std::string err = "[Error] User not found.\n";
+        send(sender_socket, err.c_str(), err.size(), 0);
+        return;
+    }
+
+    std::string out =
+        "[PM from " + sender_name + "]: " + message + "\n";
+    send(target_socket, out.c_str(), out.size(), 0);
+
+    std::string confirm =
+        "[PM to " + target + "]: " + message + "\n";
+    send(sender_socket, confirm.c_str(), confirm.size(), 0);
+}
+
+
 void handle_client(int client_socket, std::string username) {
     char buffer[1024];
 
@@ -44,7 +86,13 @@ void handle_client(int client_socket, std::string username) {
             return;
         }
 
-        std::string msg = "[" + username + "]: " + buffer;
+        std::string msg = buffer;
+        if (msg.rfind("/pm", 0) == 0) {
+            pm(client_socket, username, msg);
+            continue;
+        }
+
+        msg = "[" + username + "]: " + buffer;
         broadcast_message(msg, client_socket);
     }
 }
